@@ -27,6 +27,9 @@ import { toast } from "sonner";
 import { ThemeToggle } from "@/components/shared/theme/toggleModeBtn";
 import Image from "next/image";
 import { GradientHeading } from "@/components/ui/heading";
+import { useMutation } from "@tanstack/react-query";
+import { registerService } from "@/service/auth";
+import { AuthResponse } from "@/types";
 
 type FormInput = {
   username: string;
@@ -57,19 +60,28 @@ export function RegisterForm() {
       password: "",
     },
   });
-  function onSubmit(data: FormInput) {
-    toast.message("You submitted the following values:", {
-      description() {
-        return (
-          <pre className="mt-2 rounded-md  p-4">
-            <code className="text-secondary-foreground">
-              {JSON.stringify(data, null, 2)}
-            </code>
-          </pre>
-        );
-      },
-    });
-  }
+
+  const { mutateAsync: registerMutation, isPending } = useMutation({
+    mutationFn: registerService,
+    onSuccess: (data: AuthResponse) => {
+      toast.success("Account created Successfully!", {
+        description() {
+          return (
+            <pre className="mt-2 rounded-md  p-4">
+              <code className="text-secondary-foreground">
+                {JSON.stringify(data.user, null, 2)}
+              </code>
+            </pre>
+          );
+        },
+      });
+    },
+  });
+
+  const onSubmit = async (data: FormInput) => {
+    await registerMutation(data);
+  };
+
   return (
     <Card className="mx-auto max-w-sm">
       <CardHeader>
@@ -173,8 +185,8 @@ export function RegisterForm() {
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              Login
+            <Button type="submit" className="w-full" loading={isPending}>
+              Submit
             </Button>
           </form>
         </Form>

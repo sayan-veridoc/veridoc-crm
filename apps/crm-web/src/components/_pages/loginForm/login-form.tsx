@@ -28,17 +28,27 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/shared/theme/toggleModeBtn";
 import Image from "next/image";
 import { GradientHeading } from "@/components/ui/heading";
+import { useMutation } from "@tanstack/react-query";
+import { loginService } from "@/service/auth";
+import { AuthResponse } from "@/types";
 
 type FormInput = {
-  email: string;
+  identifier: string;
   password: string;
 };
 
 export function LoginForm() {
   const schema: ZodType<FormInput> = z.object({
-    email: z.string().min(1, { message: "Email is required" }).email({
-      message: "Invalid email format",
-    }),
+    identifier: z
+      .string()
+      .min(1, { message: "Email or Username is required" })
+      .refine(
+        (value) =>
+          value.includes("@")
+            ? z.string().email().safeParse(value).success
+            : true,
+        { message: "Invalid email format" }
+      ),
     password: z
       .string()
       .min(1, "Password is required")
@@ -51,23 +61,31 @@ export function LoginForm() {
   const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     },
   });
-  function onSubmit(data: FormInput) {
-    toast.message("You submitted the following values:", {
-      description() {
-        return (
-          <pre className="mt-2 rounded-md  p-4">
-            <code className="text-secondary-foreground">
-              {JSON.stringify(data, null, 2)}
-            </code>
-          </pre>
-        );
-      },
-    });
+
+  const { mutateAsync: loginMutation, isPending } = useMutation({
+    mutationFn: loginService,
+    onSuccess: (data: AuthResponse) => {
+      toast.success("Login Successfull!", {
+        description() {
+          return (
+            <pre className="mt-2 rounded-md  p-4">
+              <code className="text-wrap">
+                {JSON.stringify(data.user, null, 2)}
+              </code>
+            </pre>
+          );
+        },
+      });
+    },
+  });
+  async function onSubmit(data: FormInput) {
+    await loginMutation(data);
   }
+
   return (
     <Card className="mx-auto max-w-sm">
       <CardHeader>
@@ -94,23 +112,24 @@ export function LoginForm() {
             <div>
               <FormField
                 control={form.control}
-                name="email"
+                name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="email">
-                      Email <span className="text-destructive">*</span>
+                    <FormLabel htmlFor="identifier">
+                      Email or Username{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
 
                     <FormControl>
                       <Input
-                        id="email"
+                        id="identifier"
                         className={
-                          form.formState.errors.email &&
+                          form.formState.errors.identifier &&
                           "focus-visible:ring-destructive"
                         }
-                        type="email"
+                        type="text"
                         {...field}
-                        placeholder="Email"
+                        placeholder="Enter your email or username"
                       />
                     </FormControl>
                     <FormMessage />
@@ -145,7 +164,7 @@ export function LoginForm() {
                           form.formState.errors.password &&
                           "focus-visible:ring-destructive"
                         }
-                        placeholder="Password"
+                        placeholder="Enter your password"
                         {...field}
                       />
                     </FormControl>
@@ -155,7 +174,7 @@ export function LoginForm() {
               />
             </div>
 
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" loading={isPending}>
               Login
             </Button>
           </form>
